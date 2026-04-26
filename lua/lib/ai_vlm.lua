@@ -43,128 +43,18 @@
 ]]
 
 local dt = require "darktable"
+local json = require "lib/json"
 
 -- ---------------------------------------------------------------------------
 -- JSON parser
 -- ---------------------------------------------------------------------------
 
 local function json_parse(s)
-  local function skip_ws(str, pos)
-    while pos <= #str and (str:sub(pos, pos):match("%s")) do
-      pos = pos + 1
-    end
-    return pos
+  local ok, result = pcall(json.decode, s)
+  if ok then
+    return result
   end
-
-  local function parse_string(str, pos)
-    pos = skip_ws(str, pos)
-    if str:sub(pos, pos) ~= '"' then return nil, pos end
-    pos = pos + 1
-    local result = ""
-    while pos <= #str do
-      local ch = str:sub(pos, pos)
-      if ch == '"' then
-        return result, pos + 1
-      elseif ch == '\\' then
-        pos = pos + 1
-        local next_ch = str:sub(pos, pos)
-        if next_ch == '"' then result = result .. '"'
-        elseif next_ch == '\\' then result = result .. '\\'
-        elseif next_ch == 'n' then result = result .. '\n'
-        elseif next_ch == 't' then result = result .. '\t'
-        elseif next_ch == 'r' then result = result .. '\r'
-        else result = result .. next_ch
-        end
-      else
-        result = result .. ch
-      end
-      pos = pos + 1
-    end
-    return nil, pos
-  end
-
-  local function parse_number(str, pos)
-    pos = skip_ws(str, pos)
-    local start = pos
-    if str:sub(pos, pos) == '-' then pos = pos + 1 end
-    while pos <= #str and str:sub(pos, pos):match("[%d]") do pos = pos + 1 end
-    if pos <= #str and str:sub(pos, pos) == '.' then
-      pos = pos + 1
-      while pos <= #str and str:sub(pos, pos):match("[%d]") do pos = pos + 1 end
-    end
-    if pos <= #str and (str:sub(pos, pos) == 'e' or str:sub(pos, pos) == 'E') then
-      pos = pos + 1
-      if pos <= #str and (str:sub(pos, pos) == '+' or str:sub(pos, pos) == '-') then pos = pos + 1 end
-      while pos <= #str and str:sub(pos, pos):match("[%d]") do pos = pos + 1 end
-    end
-    return tonumber(str:sub(start, pos - 1)), pos
-  end
-
-  -- Forward declarations for mutually recursive functions
-  local parse_value, parse_object, parse_array
-
-  parse_object = function(str, pos)
-    pos = skip_ws(str, pos)
-    pos = pos + 1
-    local obj = {}
-    pos = skip_ws(str, pos)
-    if str:sub(pos, pos) == '}' then return {}, pos + 1 end
-    while true do
-      pos = skip_ws(str, pos)
-      local key, new_pos = parse_string(str, pos)
-      if not key then return {}, new_pos end
-      pos = skip_ws(str, new_pos)
-      pos = pos + 1
-      local value, new_pos = parse_value(str, pos)
-      obj[key] = value
-      pos = skip_ws(str, new_pos)
-      local ch = str:sub(pos, pos)
-      if ch == '}' then return obj, pos + 1 end
-      pos = pos + 1
-    end
-  end
-
-  parse_array = function(str, pos)
-    pos = skip_ws(str, pos)
-    pos = pos + 1
-    local arr = {}
-    pos = skip_ws(str, pos)
-    if str:sub(pos, pos) == ']' then return {}, pos + 1 end
-    local idx = 1
-    while true do
-      local value, new_pos = parse_value(str, pos)
-      arr[idx] = value
-      idx = idx + 1
-      pos = skip_ws(str, new_pos)
-      local ch = str:sub(pos, pos)
-      if ch == ']' then return arr, pos + 1 end
-      pos = pos + 1
-    end
-  end
-
-  parse_value = function(str, pos)
-    pos = skip_ws(str, pos)
-    if pos > #str then return nil, pos end
-    local ch = str:sub(pos, pos)
-    if ch == '"' then return parse_string(str, pos)
-    elseif ch == '{' then return parse_object(str, pos)
-    elseif ch == '[' then return parse_array(str, pos)
-    elseif ch == 't' then
-      if str:sub(pos, pos + 3) == 'true' then return true, pos + 4
-      else return nil, pos end
-    elseif ch == 'f' then
-      if str:sub(pos, pos + 4) == 'false' then return false, pos + 5
-      else return nil, pos end
-    elseif ch == 'n' then
-      if str:sub(pos, pos + 3) == 'null' then return nil, pos + 4
-      else return nil, pos end
-    else
-      return parse_number(str, pos)
-    end
-  end
-
-  local result, _ = parse_value(s, 1)
-  return result
+  return nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -304,12 +194,7 @@ end
 -- ---------------------------------------------------------------------------
 
 local function escape_json_string(str)
-  return str
-    :gsub("\\", "\\\\")
-    :gsub('"', '\\"')
-    :gsub("\n", "\\n")
-    :gsub("\r", "\\r")
-    :gsub("\t", "\\t")
+  return json.encode(str):sub(2, -2)
 end
 
 -- ---------------------------------------------------------------------------
@@ -608,14 +493,21 @@ local function build_vlm_request(image_path, options)
   end
 
   local data_uri = "data:image/jpeg;base64," .. encoded
-  local escaped_prompt = escape_json_string(prompt)
 
-  local request_body = '{"model":"' .. model
-    .. '","messages":[{"role":"user","content":['
-    .. '{"type":"text","text":"' .. escaped_prompt .. '"},'
-    .. '{"type":"image_url","image_url":{"url":"' .. data_uri .. '"}}'
-    .. ']}],"max_tokens":' .. max_tokens
-    .. ',"temperature":' .. temperature .. '}'
+  local request_body = json.encode({
+    model = model,
+    messages = {
+      {
+        role = "user",
+        content = {
+          { type = "text", text = prompt },
+          { type = "image_url", image_url = { url = data_uri } }
+        }
+      }
+    },
+    max_tokens = max_tokens,
+    temperature = temperature,
+  })
 
   return request_body, endpoint, tmpfile
 end
