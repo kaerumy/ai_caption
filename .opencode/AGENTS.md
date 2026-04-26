@@ -59,3 +59,36 @@ Configurable via darktable preferences:
 - Image groups are handled: uses first non-RAW member if available
 - All temp files are cleaned up after use
 - Uses custom JSON parser (no external dependencies)
+
+## Commit Message Format
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification:
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+- **type**: feat, fix, docs, style, refactor, test, chore
+- **scope**: optional, indicates which part of the code (e.g., vlm, prompt, panel)
+- **description**: brief summary in imperative mood
+- **body**: one or more paragraphs explaining the what and why
+- **footer**: breaking changes, issue references, other metadata
+
+Example:
+
+```
+feat(vlm): add AP Photo-style caption generation
+
+Update VLM prompt to follow AP Photo editorial guidelines with
+two-sentence structure: present tense for who/what/where/when,
+and past tense for why/how context.
+
+Photo credits are now pulled from image metadata and appended
+at the end of the description.
+
+Closes #12
+```
