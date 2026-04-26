@@ -1,0 +1,5 @@
+# TODO
+
+- [ ] Update README with installation documentation and usage examples
+- [ ] Add warning to review captions for accuracy before public use
+- [ ] Review JSON parser function — looks convoluted and brittle, investigate alternative Lua JSON libraries
