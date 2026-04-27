@@ -1,0 +1,7 @@
+Darktable Lua plugin that uses a local AI VLM via OpenAI-compatible
+endpoint to suggest title and description metadata for a single selected
+photo in darktable. It adds additional context from geolocation, capture
+date, notes, creator and publisher metadata to suggest an AP Photo style
+caption. 
+
+
