@@ -140,38 +140,35 @@ end
 local function resize_image(image_path, max_dim, image_obj)
   max_dim = max_dim or 1024
 
-  if is_raw_file(image_path, image_obj) and image_obj then
+  if image_obj then
+    -- Use image object passed from caller (preferred method)
     local exporter = dt.new_format("jpeg")
     exporter.quality = 85
     exporter.max_height = 0
     exporter.max_width = 0
+    exporter.max_dimension = max_dim
 
     local tmpfile = os.tmpname() .. ".jpg"
     local success, err = exporter:write_image(image_obj, tmpfile, false)
     if not success then
-      return nil, "RAW to JPEG export failed: " .. (err or "unknown error")
+      return nil, "Image resize failed: " .. (err or "unknown error")
     end
     return tmpfile, nil
   end
 
-  local tmpfile = os.tmpname() .. ".jpg"
-
-  local resize_cmd = string.format(
-    'convert "%s" -resize "%dx%d>" -quality 85 "%s"',
-    image_path,
-    max_dim,
-    max_dim,
-    tmpfile
-  )
-
-  local ret = os.execute(resize_cmd)
-  local success = type(ret) == "number" and ret == 0 or (type(ret) == "boolean" and ret == true)
-  if not success then
-    os.remove(tmpfile)
-    return nil, "Image resize failed"
+  -- Try to get image from darktable gui
+  if dt.gui.action_images and #dt.gui.action_images > 0 then
+    local img = dt.gui.action_images[1]
+    return resize_image(image_path, max_dim, img)
   end
 
-  return tmpfile, nil
+  -- Try to load from file
+  local img = dt.load_image(image_path)
+  if img then
+    return resize_image(image_path, max_dim, img)
+  end
+  
+  return nil, "Image loading failed"
 end
 
 local function encode_image_resized(image_path, max_dim, image_obj)
@@ -487,7 +484,7 @@ local function build_vlm_request(image_path, options)
   end
 
   local max_dim = options.max_dim or 1024
-  local encoded, tmpfile = encode_image_resized(image_path, max_dim, options.image_obj)
+  local encoded, tmpfile = encode_image_resized(image_path, max_dim)
   if not encoded then
     return nil, tmpfile
   end
