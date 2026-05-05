@@ -144,9 +144,8 @@ local function resize_image(image_path, max_dim, image_obj)
     -- Use image object passed from caller (preferred method)
     local exporter = dt.new_format("jpeg")
     exporter.quality = 85
-    exporter.max_height = 0
-    exporter.max_width = 0
-    exporter.max_dimension = max_dim
+    exporter.max_height = max_dim
+    exporter.max_width = max_dim
 
     local tmpfile = os.tmpname() .. ".jpg"
     local success, err = exporter:write_image(image_obj, tmpfile, false)
